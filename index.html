@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P&L Analysis</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg-primary:#ffffff;--bg-secondary:#f5f4f0;--bg-tertiary:#efede8;--text-primary:#1a1a18;--text-secondary:#73726c;--text-tertiary:#9c9a92;--border:rgba(0,0,0,0.12);--border-md:rgba(0,0,0,0.22);--radius-md:8px;--radius-lg:12px;--up:#3B6D11;--dn:#A32D2D}
+@media(prefers-color-scheme:dark){:root{--bg-primary:#1c1c1a;--bg-secondary:#242422;--bg-tertiary:#2c2c2a;--text-primary:#e8e6df;--text-secondary:#9c9a92;--text-tertiary:#6b6a64;--border:rgba(255,255,255,0.1);--border-md:rgba(255,255,255,0.2);--up:#97C459;--dn:#F09595}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg-tertiary);color:var(--text-primary);font-size:14px}
+.app{display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+.sidebar{background:var(--bg-secondary);border-right:0.5px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-header{padding:16px;border-bottom:0.5px solid var(--border)}
+.sidebar-header .title{font-size:15px;font-weight:600;color:var(--text-primary)}
+.sidebar-header .sub{font-size:11px;color:var(--text-secondary);margin-top:2px}
+.nav-label{font-size:10px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.07em;padding:12px 16px 4px}
+.nav-item{padding:8px 16px;font-size:13px;cursor:pointer;color:var(--text-secondary);border-left:2px solid transparent;display:flex;align-items:center;gap:9px;transition:all .15s}
+.nav-item:hover{color:var(--text-primary);background:var(--bg-primary)}
+.nav-item.active{color:var(--text-primary);border-left-color:var(--text-primary);background:var(--bg-primary);font-weight:500}
+.nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.nav-err{font-size:10px;padding:1px 5px;border-radius:99px;background:#FCEBEB;color:#A32D2D;margin-left:auto}
+.nav-add{padding:8px 16px}
+.main{padding:1.5rem 2rem;overflow:hidden}
+.page{display:none}.page.active{display:block}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem}
+.page-title{font-size:20px;font-weight:600;color:var(--text-primary)}
+.page-sub{font-size:12px;color:var(--text-secondary);margin-top:3px}
+.mg{display:grid;gap:10px;margin-bottom:1.25rem}
+.mg-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.metric{background:var(--bg-secondary);border-radius:var(--radius-md);padding:14px 16px}
+.metric-label{font-size:11px;color:var(--text-secondary);margin-bottom:5px}
+.metric-value{font-size:22px;font-weight:600}
+.metric-sub{font-size:11px;margin-top:3px;color:var(--text-secondary)}
+.up{color:var(--up)}.dn{color:var(--dn)}
+.card{background:var(--bg-primary);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:1rem}
+.card-title{font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+.cr2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.cr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+input,select,textarea{font-size:13px;padding:8px 11px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);width:100%;outline:none;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.12)}
+.btn{padding:8px 16px;font-size:13px;border-radius:var(--radius-md);cursor:pointer;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;transition:background .15s}
+.btn:hover{background:var(--bg-secondary)}
+.btn-p{background:var(--text-primary);color:var(--bg-primary);border-color:var(--text-primary)}
+.btn-p:hover{opacity:.88}
+.btn-sm{padding:5px 11px;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;border-bottom:0.5px solid var(--border)}
+td{padding:9px 10px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg-secondary)}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500}
+.b-ok{background:#EAF3DE;color:#3B6D11}.b-err{background:#FCEBEB;color:#A32D2D}.b-warn{background:#FAEEDA;color:#854F0B}.b-info{background:#E6F1FB;color:#185FA5}
+.upload-zone{border:1.5px dashed var(--border-md);border-radius:var(--radius-lg);padding:2.5rem;text-align:center;cursor:pointer;margin-bottom:1rem;transition:background .15s}
+.upload-zone:hover{background:var(--bg-secondary)}
+.insight-box{border-radius:0 var(--radius-md) var(--radius-md) 0;padding:13px 15px;margin-bottom:9px;font-size:13px;line-height:1.8}
+.ib-summary{background:#E6F1FB;border-left:3px solid #185FA5}.ib-risk{background:#FAEEDA;border-left:3px solid #854F0B}
+.ib-error{background:#FCEBEB;border-left:3px solid #A32D2D}.ib-compare{background:#EAF3DE;border-left:3px solid #3B6D11}
+.ib-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;opacity:.6}
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:0.5px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.tgl{position:relative;width:36px;height:20px;flex-shrink:0}
+.tgl input{opacity:0;width:0;height:0;position:absolute}
+.tgl-track{position:absolute;inset:0;background:var(--border-md);border-radius:10px;transition:background .2s;cursor:pointer}
+.tgl input:checked~.tgl-track{background:#185FA5}
+.tgl-thumb{position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s;pointer-events:none}
+.tgl input:checked~.tgl-track~.tgl-thumb{transform:translateX(16px)}
+.dash-widget{background:var(--bg-primary);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;cursor:pointer;transition:border-color .15s}
+.dash-widget:hover{border-color:var(--border-md)}
+.wg2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.leg{display:flex;gap:14px;font-size:12px;color:var(--text-secondary);margin-bottom:10px;flex-wrap:wrap}
+.leg span{display:flex;align-items:center;gap:5px}
+.ld{width:10px;height:10px;border-radius:2px}
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 160px)}
+.chat-context-bar{background:var(--bg-secondary);border-radius:var(--radius-md);padding:9px 13px;margin-bottom:12px;font-size:12px;color:var(--text-secondary);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.chat-messages{flex:1;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;padding-right:4px}
+.chat-msg{max-width:86%;font-size:13px;line-height:1.75;padding:11px 15px;border-radius:14px}
+.msg-user{align-self:flex-end;background:var(--text-primary);color:var(--bg-primary);border-radius:14px 14px 3px 14px}
+.msg-ai{align-self:flex-start;background:var(--bg-secondary);color:var(--text-primary);border-radius:14px 14px 14px 3px}
+.msg-thinking{align-self:flex-start;color:var(--text-secondary);font-style:italic;font-size:12px;padding:5px 0}
+.chat-input-row{display:flex;gap:8px;align-items:flex-end}
+.chat-input-row textarea{resize:none;min-height:42px;max-height:110px;border-radius:10px}
+.chat-send{padding:10px 18px;font-size:13px;border-radius:10px;cursor:pointer;border:none;background:var(--text-primary);color:var(--bg-primary);flex-shrink:0;font-family:inherit}
+.chat-send:disabled{opacity:.4;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{font-size:12px;padding:5px 11px;border-radius:99px;border:0.5px solid var(--border-md);background:var(--bg-primary);color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:all .15s}
+.chip:hover{background:var(--bg-secondary);color:var(--text-primary)}
+.new-badge{font-size:10px;padding:1px 6px;border-radius:99px;background:#E6F1FB;color:#185FA5;margin-left:auto}
+@media(max-width:768px){.app{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.mg-4{grid-template-columns:repeat(2,1fr)}.cr2,.wg2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="sidebar">
+  <div class="sidebar-header"><div class="title">P&amp;L Analysis</div><div class="sub">Upload · Analyse · Ask</div></div>
+  <div class="nav-label">Overview</div>
+  <div class="nav-item active" onclick="nav('dashboard',this)">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.2"/></svg>Dashboard</div>
+  <div class="nav-item" onclick="nav('upload',this)">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 11V3M5 6l3-3 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M2 13h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>Upload financials</div>
+  <div class="nav-item" onclick="nav('ask',this)">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v6A1.5 1.5 0 0112.5 11H9l-3 3v-3H3.5A1.5 1.5 0 012 9.5v-6z" stroke="currentColor" stroke-width="1.2"/></svg>Ask AI<span class="new-badge">AI</span></div>
+  <div class="nav-label">Companies</div>
+  <div id="coNav"></div>
+  <div class="nav-add"><button class="btn btn-sm" style="width:100%;font-size:12px" onclick="addCo()">+ Add company</button></div>
+  <div class="nav-label">Settings</div>
+  <div class="nav-item" onclick="nav('insights-settings',this)">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>AI insight settings</div>
+  <div class="nav-item" onclick="nav('dash-settings',this)">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="2" rx="1" fill="currentColor"/><rect x="1" y="8" width="10" height="2" rx="1" fill="currentColor"/><rect x="1" y="12" width="12" height="2" rx="1" fill="currentColor"/></svg>Dashboard settings</div>
+</div>
+<div class="main">
+<div id="page-dashboard" class="page active">
+  <div class="section-header">
+    <div><div class="page-title">P&amp;L Analysis</div><div class="page-sub" id="dash-sub">Loading...</div></div>
+    <select id="periodSel" style="width:auto;font-size:12px" onchange="refreshDash()">
+      <option value="all">All periods</option>
+      <option value="2024-01">Jan 2024</option><option value="2024-02">Feb 2024</option><option value="2024-03">Mar 2024</option>
+      <option value="2024-04">Apr 2024</option><option value="2024-05">May 2024</option><option value="2024-06">Jun 2024</option>
+    </select>
+  </div>
+  <div class="mg mg-4" id="dashMetrics"></div>
+  <div id="coCards" class="wg2"></div>
+  <div class="cr2" id="dashCharts">
+    <div class="card"><div class="card-title">Net profit by company</div><div style="position:relative;height:170px"><canvas id="netProfitChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Month-over-month revenue</div>
+      <div class="leg"><span><span class="ld" style="background:#185FA5"></span>This period</span><span><span class="ld" style="background:#B5D4F4"></span>Prior</span></div>
+      <div style="position:relative;height:170px"><canvas id="momChart"></canvas></div></div>
+  </div>
+  <div class="card" id="dashErrCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">Accountant error monitor</div>
+      <button class="btn btn-sm" onclick="nav('upload',document.querySelectorAll('.nav-item')[1])">Upload new file</button>
+    </div>
+    <table><thead><tr><th>Accountant</th><th>Companies</th><th>Last upload</th><th>Errors</th><th>Status</th></tr></thead><tbody id="acctErrTable"></tbody></table>
+  </div>
+</div>
+<div id="page-upload" class="page">
+  <div class="section-header"><div><div class="page-title">Upload financials</div><div class="page-sub">Upload → AI analyses → insights generated automatically</div></div></div>
+  <div class="cr2">
+    <div>
+      <div style="font-size:13px;font-weight:500;margin-bottom:8px">Select company</div>
+      <select id="uploadCo" style="margin-bottom:1rem" onchange="updateUploadAcct()"><option value="">Choose company...</option></select>
+      <div id="uploadAcctInfo" style="font-size:12px;color:var(--text-secondary);margin-bottom:1rem"></div>
+      <div class="upload-zone" onclick="document.getElementById('fileIn').click()">
+        <div style="font-size:28px;margin-bottom:8px;color:var(--text-secondary)">↑</div>
+        <div style="font-weight:600;font-size:15px">Drop or click to upload CSV</div>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:5px">P&amp;L or balance sheet · CSV format</div>
+        <input type="file" id="fileIn" accept=".csv" style="display:none" onchange="handleUpload(event)">
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">
+        <strong style="color:var(--text-primary)">P&amp;L format:</strong> date, type (revenue/expense), amount, category, description<br>
+        <strong style="color:var(--text-primary)">Balance sheet:</strong> item, category (asset/liability/equity), amount, current (yes/no)
+      </div>
+    </div>
+    <div><div style="font-size:13px;font-weight:500;margin-bottom:8px">AI insights that will run</div><div id="insightPreview"></div></div>
+  </div>
+  <div id="uploadResult" style="display:none">
+    <div class="card" style="border-color:#97C459">
+      <div style="font-size:13px;font-weight:600;color:#3B6D11;margin-bottom:10px" id="uploadMsg"></div>
+      <div id="uploadInsights"></div>
+    </div>
+  </div>
+</div>
+<div id="page-ask" class="page">
+  <div class="section-header"><div><div class="page-title">Ask AI</div><div class="page-sub">Ask anything about your companies, financials, or accountant errors</div></div></div>
+  <div class="chat-wrap">
+    <div class="chat-context-bar">
+      <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-secondary)">Context:
+        <select id="chatScope" style="width:auto;font-size:12px;padding:3px 8px;border-radius:6px" onchange="updateChatContext()"><option value="all">All companies</option></select>
+      </div>
+      <div id="chatContextSummary" style="font-size:11px;color:var(--text-tertiary)"></div>
+    </div>
+    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px">Suggested questions</div>
+    <div class="chips" id="suggestedChips"></div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-msg msg-ai">Hi! I have access to all your company financials. Ask me anything — about a specific company, comparisons, errors, risks, or anything else you want to understand.</div>
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chatInput" placeholder="Ask anything about your financials..." rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+      <button class="chat-send" id="chatSendBtn" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</div>
+<div id="page-company" class="page">
+  <div class="section-header">
+    <div><div class="page-title" id="coDetailName">Company</div><div class="page-sub" id="coDetailSub"></div></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="openAskForCo()">Ask AI about this ↗</button>
+      <button class="btn btn-sm" onclick="nav('upload',document.querySelectorAll('.nav-item')[1])">Upload</button>
+    </div>
+  </div>
+  <div class="mg mg-4" id="coMetrics"></div>
+  <div class="cr2">
+    <div class="card"><div class="card-title">Revenue vs expenses</div>
+      <div class="leg"><span><span class="ld" style="background:#185FA5"></span>Revenue</span><span><span class="ld" style="background:#D85A30"></span>Expenses</span></div>
+      <div style="position:relative;height:170px"><canvas id="coRevExp"></canvas></div></div>
+    <div class="card"><div class="card-title">Waterfall — revenue to net</div><div style="position:relative;height:170px"><canvas id="coWaterfall"></canvas></div></div>
+  </div>
+  <div class="card"><div class="card-title">AI insights</div><div id="coInsights"><span style="color:var(--text-secondary);font-style:italic">Upload a file to generate insights.</span></div></div>
+  <div class="card"><div class="card-title">Flagged entries</div>
+    <table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Issue</th><th>Status</th></tr></thead><tbody id="coErrTable"></tbody></table>
+  </div>
+</div>
+<div id="page-insights-settings" class="page">
+  <div class="section-header">
+    <div><div class="page-title">AI insight settings</div><div class="page-sub">Choose what runs automatically after every upload</div></div>
+    <button class="btn btn-p btn-sm" onclick="saveSettings('insightSaved')">Save settings</button>
+  </div>
+  <div class="card"><div class="card-title">Auto-run after upload</div><div id="insightToggles"></div></div>
+  <div class="card"><div class="card-title">Error detection rules</div><div id="errorToggles"></div></div>
+  <div class="card">
+    <div class="card-title">Custom AI instruction</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Context the AI should know when analysing your financials.</div>
+    <textarea id="customInstruction" rows="4" style="resize:vertical" placeholder="e.g. We are a services business. Flag anything above $50,000. Payroll should stay under 40% of revenue."></textarea>
+    <div id="insightSaved" style="font-size:12px;color:#3B6D11;margin-top:6px;display:none">Settings saved.</div>
+  </div>
+</div>
+<div id="page-dash-settings" class="page">
+  <div class="section-header">
+    <div><div class="page-title">Dashboard settings</div><div class="page-sub">Choose what appears on your dashboard</div></div>
+    <button class="btn btn-p btn-sm" onclick="saveDashSettings()">Save &amp; apply</button>
+  </div>
+  <div class="card"><div class="card-title">Metric cards</div><div id="metricToggles"></div></div>
+  <div class="card"><div class="card-title">Widgets</div><div id="widgetToggles"></div></div>
+</div>
+</div>
+</div>
+<script>
+const PAL=['#185FA5','#1D9E75','#D85A30','#534AB7','#854F0B','#3B6D11','#993556','#888780'];
+let insightSettings={summary:{label:'Plain-English summary',desc:'2-3 sentence overview of financial health',on:true},risks:{label:'Top 3 risks',desc:'Flagged concerns and what to do',on:true},errors:{label:'Accountant error report',desc:'List of flagged entry mistakes',on:true},compare:{label:'Month vs last month',desc:'What changed and by how much',on:true}};
+let errorSettings={duplicates:{label:'Duplicate entries',on:true},negRev:{label:'Zero or negative revenue',on:true},negExp:{label:'Negative expenses',on:true},bigSpike:{label:'Amounts 4x above average',on:true},missingCat:{label:'Missing category',on:true}};
+let dashSettings={metrics:{profit:{label:'Net profit & margin',on:true},cashflow:{label:'Cash flow position',on:true},errors:{label:'Error count',on:true},mom:{label:'Month-over-month',on:true}},widgets:{coCards:{label:'Company cards',on:true},charts:{label:'Charts',on:true},acctErr:{label:'Accountant error monitor',on:true}}};
+let accts=[{id:'a1',name:'Sarah Tan',initials:'ST',color:'#185FA5'},{id:'a2',name:'Ravi Menon',initials:'RM',color:'#1D9E75'},{id:'a3',name:'Linda Chow',initials:'LC',color:'#D85A30'}];
+let companies=[
+  {id:'c1',name:'Acme Corp',color:'#185FA5',acctId:'a1',lastUpload:'2024-06-30',entries:[{id:1,date:'2024-01-15',type:'revenue',amount:12400,category:'Sales',desc:'Q1 deal'},{id:2,date:'2024-02-05',type:'revenue',amount:15000,category:'Sales',desc:'Enterprise'},{id:3,date:'2024-02-18',type:'expense',amount:1200,category:'Marketing',desc:'Ads'},{id:4,date:'2024-03-01',type:'revenue',amount:9500,category:'Services',desc:'Retainer'},{id:5,date:'2024-03-12',type:'expense',amount:2800,category:'Software',desc:'Licenses'},{id:6,date:'2024-04-22',type:'revenue',amount:95000,category:'Sales',desc:'LARGE DEAL'},{id:7,date:'2024-05-20',type:'revenue',amount:8200,category:'Services',desc:'Consulting'},{id:8,date:'2024-06-01',type:'revenue',amount:13200,category:'Sales',desc:'Renewal'},{id:9,date:'2024-06-14',type:'expense',amount:-500,category:'Operations',desc:'Refund error'},{id:10,date:'2024-05-20',type:'revenue',amount:8200,category:'Services',desc:'Consulting'}]},
+  {id:'c2',name:'Beta Ventures',color:'#1D9E75',acctId:'a1',lastUpload:'2024-06-28',entries:[{id:20,date:'2024-01-10',type:'revenue',amount:22000,category:'Sales',desc:'New client'},{id:21,date:'2024-01-28',type:'expense',amount:5000,category:'Payroll',desc:'Payroll'},{id:22,date:'2024-02-14',type:'revenue',amount:18500,category:'Services',desc:'Project'},{id:23,date:'2024-03-05',type:'revenue',amount:9800,category:'Sales',desc:'Upsell'},{id:24,date:'2024-04-11',type:'revenue',amount:14000,category:'Sales',desc:'Q2 deal'},{id:25,date:'2024-06-20',type:'revenue',amount:31000,category:'Sales',desc:'Enterprise'}]},
+  {id:'c3',name:'Gamma Holdings',color:'#D85A30',acctId:'a2',lastUpload:'2024-06-25',entries:[{id:30,date:'2024-01-08',type:'revenue',amount:45000,category:'Sales',desc:'Anchor client'},{id:31,date:'2024-02-15',type:'expense',amount:12000,category:'Payroll',desc:'Staff costs'},{id:32,date:'2024-03-22',type:'revenue',amount:0,category:'Sales',desc:'Draft incomplete'},{id:33,date:'2024-04-10',type:'revenue',amount:38000,category:'Sales',desc:'Q2 contract'},{id:34,date:'2024-05-18',type:'expense',amount:8500,category:'Operations',desc:'Equipment'},{id:35,date:'2024-06-01',type:'revenue',amount:52000,category:'Sales',desc:'Renewal'}]},
+  {id:'c4',name:'Delta Solutions',color:'#534AB7',acctId:'a3',lastUpload:'2024-06-20',entries:[{id:40,date:'2024-01-14',type:'revenue',amount:17000,category:'Services',desc:'Consulting'},{id:41,date:'2024-02-20',type:'expense',amount:4200,category:'Software',desc:'Licenses'},{id:42,date:'2024-03-09',type:'revenue',amount:21000,category:'Services',desc:'Project'},{id:43,date:'2024-04-17',type:'expense',amount:1800,category:'Marketing',desc:'Events'},{id:44,date:'2024-05-25',type:'revenue',amount:17000,category:'Services',desc:'Consulting'},{id:45,date:'2024-06-11',type:'revenue',amount:29000,category:'Sales',desc:'New logo'}]}
+];
+let nextId=200,currentCoId=null,charts={},chatHistory=[],chatScopeId='all';
+const SUGGESTIONS_ALL=['Which company is underperforming?','Compare all companies','Who has the most errors?','Which accountant needs attention?','What are the biggest risks?','Draft an error report for Sarah Tan'];
+const SUGGESTIONS_CO={c1:['Is the $95k deal in April suspicious?','Why is the margin so high?','Draft error feedback for accountant'],c2:['How is Beta Ventures trending?','Any risks I should know?','Compare Jan vs Jun revenue'],c3:['Explain the zero-revenue entry','Is Gamma Holdings healthy?','What should I ask Ravi to fix?'],c4:['How is Delta Solutions performing?','Any duplicate entries?','Is software spend reasonable?']};
+function fmt(n){return(n<0?'-$':'$')+Math.abs(Math.round(n)).toLocaleString();}
+function pct(n){return(Math.round(n*10)/10)+'%';}
+function mk(id,cfg){if(charts[id])charts[id].destroy();const c=document.getElementById(id);if(!c)return;charts[id]=new Chart(c,cfg);}
+function getEntries(coId,period){const co=companies.find(c=>c.id===coId);if(!co)return[];return period&&period!=='all'?co.entries.filter(x=>x.date.startsWith(period)):co.entries;}
+function allEntries(period){return companies.flatMap(co=>period&&period!=='all'?co.entries.filter(x=>x.date.startsWith(period)):co.entries);}
+function detectErrors(entries){const flags=[],aMap={};const gAvg=entries.filter(e=>e.type==='revenue'&&e.amount>0).reduce((a,e,_,arr)=>a+e.amount/arr.length,0)||1;entries.forEach(e=>{const issues=[];if(errorSettings.negRev.on&&e.amount<=0&&e.type==='revenue')issues.push('Zero/negative revenue');if(errorSettings.negExp.on&&e.amount<0&&e.type==='expense')issues.push('Negative expense');if(errorSettings.missingCat.on&&!e.category)issues.push('Missing category');if(errorSettings.bigSpike.on&&e.type==='revenue'&&e.amount>gAvg*4)issues.push('Amount 4x above avg');const k=`${e.amount}_${e.type}_${e.date}`;if(errorSettings.duplicates.on&&aMap[k]&&e.amount>0)issues.push('Possible duplicate');else aMap[k]=true;if(issues.length)flags.push({...e,issues:issues.join('; ')});});return flags;}
+async function callAI(prompt,system){const body={model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:prompt}]};if(system)body.system=system;const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();return d.content&&d.content[0]?d.content[0].text:'';}
+function buildContext(scopeId){const cos=scopeId==='all'?companies:[companies.find(c=>c.id===scopeId)].filter(Boolean);return cos.map(co=>{const rev=co.entries.filter(e=>e.type==='revenue').reduce((a,e)=>a+e.amount,0);const exp=co.entries.filter(e=>e.type==='expense').reduce((a,e)=>a+e.amount,0);const errs=detectErrors(co.entries);const acct=accts.find(a=>a.id===co.acctId);const months=[...new Set(co.entries.map(e=>e.date.slice(0,7)))].sort();return`${co.name} (accountant: ${acct?acct.name:'unknown'}): revenue $${Math.round(rev).toLocaleString()}, expenses $${Math.round(exp).toLocaleString()}, net $${Math.round(rev-exp).toLocaleString()}, margin ${rev>0?Math.round((rev-exp)/rev*100):0}%, errors: ${errs.length}. Monthly: ${months.map(m=>m+':$'+Math.round(co.entries.filter(e=>e.date.startsWith(m)&&e.type==='revenue').reduce((a,e)=>a+e.amount,0))).join(', ')}.`;}).join('\n');}
+function nav(page,el){document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');document.getElementById('page-'+page).classList.add('active');if(page==='dashboard')refreshDash();if(page==='upload')refreshUploadPage();if(page==='ask')initAskPage();if(page==='insights-settings')renderInsightToggles();if(page==='dash-settings')renderDashToggles();}
+function openAskForCo(){chatScopeId=currentCoId||'all';nav('ask',document.querySelectorAll('.nav-item')[2]);}
+function initAskPage(){const sel=document.getElementById('chatScope');sel.innerHTML='<option value="all">All companies</option>'+companies.map(co=>`<option value="${co.id}">${co.name}</option>`).join('');sel.value=chatScopeId;updateChatContext();renderChips();}
+function updateChatContext(){chatScopeId=document.getElementById('chatScope').value;const cos=chatScopeId==='all'?companies:[companies.find(c=>c.id===chatScopeId)].filter(Boolean);const totalRev=cos.flatMap(c=>c.entries).filter(e=>e.type==='revenue').reduce((a,e)=>a+e.amount,0);const totalErrs=cos.reduce((a,co)=>a+detectErrors(co.entries).length,0);document.getElementById('chatContextSummary').textContent=`${cos.length} ${cos.length===1?'company':'companies'} · ${fmt(totalRev)} revenue · ${totalErrs} errors`;renderChips();}
+function renderChips(){const sugs=chatScopeId==='all'?SUGGESTIONS_ALL:(SUGGESTIONS_CO[chatScopeId]||SUGGESTIONS_ALL);document.getElementById('suggestedChips').innerHTML=sugs.map(s=>`<div class="chip" onclick="askChip('${s.replace(/'/g,"\\'")}')">${s}</div>`).join('');}
+function askChip(q){document.getElementById('chatInput').value=q;sendChat();}
+function appendMsg(text,role){const el=document.createElement('div');el.className='chat-msg '+(role==='user'?'msg-user':'msg-ai');el.textContent=text;const msgs=document.getElementById('chatMessages');msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;return el;}
+async function sendChat(){const input=document.getElementById('chatInput');const q=input.value.trim();if(!q)return;input.value='';input.style.height='auto';const btn=document.getElementById('chatSendBtn');btn.disabled=true;appendMsg(q,'user');const thinking=document.createElement('div');thinking.className='msg-thinking';thinking.textContent='Thinking...';document.getElementById('chatMessages').appendChild(thinking);chatHistory.push({role:'user',content:q});const custom=document.getElementById('customInstruction')?document.getElementById('customInstruction').value:'';const ctx=buildContext(chatScopeId);const system=`You are a financial analyst assistant inside a P&L Analysis tool. Company data:\n\n${ctx}\n\n${custom?'Additional context: '+custom:''}\n\nAnswer directly and concisely. Reference actual numbers and names. Keep responses under 150 words unless a detailed report is requested.`;try{const reply=await callAI(q,system);thinking.remove();appendMsg(reply,'ai');chatHistory.push({role:'assistant',content:reply});if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);}catch(e){thinking.remove();appendMsg('Connection error. Please try again.','ai');}btn.disabled=false;document.getElementById('chatMessages').scrollTop=99999;}
+function renderCoNav(){document.getElementById('coNav').innerHTML=companies.map(co=>{const errs=detectErrors(co.entries).length;return`<div class="nav-item" onclick="openCo('${co.id}',this)"><div class="nav-dot" style="background:${co.color}"></div><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${co.name}</span>${errs>0?`<span class="nav-err">${errs}</span>`:''}</div>`;}).join('');const sel=document.getElementById('uploadCo');sel.innerHTML='<option value="">Choose company...</option>'+companies.map(co=>`<option value="${co.id}">${co.name}</option>`).join('');}
+function openCo(id,el){currentCoId=id;document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));if(el)el.classList.add('active');document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById('page-company').classList.add('active');renderCoDetail(id);}
+function refreshDash(){const period=document.getElementById('periodSel').value;const entries=allEntries(period);const rev=entries.filter(e=>e.type==='revenue').reduce((a,e)=>a+e.amount,0);const exp=entries.filter(e=>e.type==='expense').reduce((a,e)=>a+e.amount,0);const net=rev-exp,margin=rev>0?net/rev*100:0;const totalErrs=companies.reduce((a,co)=>a+detectErrors(co.entries).length,0);const months=[...new Set(entries.map(e=>e.date.slice(0,7)))].sort();let momPct=0;if(months.length>=2){const m2=months[months.length-1],m1=months[months.length-2];const r2=entries.filter(e=>e.date.startsWith(m2)&&e.type==='revenue').reduce((a,e)=>a+e.amount,0);const r1=entries.filter(e=>e.date.startsWith(m1)&&e.type==='revenue').reduce((a,e)=>a+e.amount,0);momPct=r1>0?(r2-r1)/r1*100:0;}
+document.getElementById('dash-sub').textContent=`Monitoring ${companies.length} companies · ${accts.length} accountants`;
+const mDefs=[{key:'profit',label:'Net profit',val:fmt(net),sub:pct(margin)+' margin',cls:net>=0?'up':'dn'},{key:'cashflow',label:'Cash position',val:fmt(net),sub:net>0?'Positive':'Negative',cls:net>0?'up':'dn'},{key:'errors',label:'Errors flagged',val:totalErrs,sub:totalErrs>0?'Needs review':'All clear',cls:totalErrs>0?'dn':'up'},{key:'mom',label:'MoM revenue',val:(momPct>=0?'+':'')+pct(momPct),sub:'vs prior month',cls:momPct>=0?'up':'dn'}].filter(m=>dashSettings.metrics[m.key].on);
+document.getElementById('dashMetrics').style.gridTemplateColumns=`repeat(${mDefs.length},minmax(0,1fr))`;
+document.getElementById('dashMetrics').innerHTML=mDefs.map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value ${m.cls}">${m.val}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+document.getElementById('coCards').style.display=dashSettings.widgets.coCards.on?'grid':'none';
+if(dashSettings.widgets.coCards.on){document.getElementById('coCards').innerHTML=companies.map(co=>{const ce=getEntries(co.id,period);const cr=ce.filter(e=>e.type==='revenue').reduce((a,e)=>a+e.amount,0);const cx=ce.filter(e=>e.type==='expense').reduce((a,e)=>a+e.amount,0);const cn=cr-cx,errs=detectErrors(co.entries).length;const acct=accts.find(a=>a.id===co.acctId);return`<div class="dash-widget" onclick="openCo('${co.id}',null)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="width:10px;height:10px;border-radius:50%;background:${co.color}"></div><div style="font-weight:600;font-size:14px;flex:1">${co.name}</div>${errs>0?`<span class="badge b-err">${errs} errors</span>`:'<span class="badge b-ok">Clean</span>'}</div><div class="cr3" style="margin-bottom:8px"><div><div style="font-size:11px;color:var(--text-secondary)">Revenue</div><div style="font-size:14px;font-weight:600;color:var(--up)">${fmt(cr)}</div></div><div><div style="font-size:11px;color:var(--text-secondary)">Expenses</div><div style="font-size:14px;font-weight:600;color:var(--dn)">${fmt(cx)}</div></div><div><div style="font-size:11px;color:var(--text-secondary)">Net</div><div style="font-size:14px;font-weight:600;color:${cn>=0?'var(--up)':'var(--dn)'}">${fmt(cn)}</div></div></div><div style="font-size:11px;color:var(--text-secondary)">Accountant: <span style="color:${acct?acct.color:'inherit'}">${acct?acct.name:'—'}</span> · ${co.lastUpload}</div></div>`;}).join('');}
+document.getElementById('dashCharts').style.display=dashSettings.widgets.charts.on?'grid':'none';
+if(dashSettings.widgets.charts.on){mk('netProfitChart',{type:'bar',data:{labels:companies.map(c=>c.name.split(' ')[0]),datasets:[{data:companies.map(co=>{const ce=getEntries(co.id,period);return ce.filter(e=>e.type==='revenue').reduce((a,e)=>a+e.amount,0)-ce.filter(e=>e.type==='expense').reduce((a,e)=>a+e.amount,0);}),backgroundColor:companies.map(co=>co.color+'cc'),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:11}}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',font:{size:10}}}}}});const allM=[...new Set(companies.flatMap(co=>co.entries.map(e=>e.date.slice(0,7))))].sort().slice(-6);const mC=allM.map(m=>allEntries('all').filter(e=>e.date.startsWith(m)&&e.type==='revenue').reduce((a,e)=>a+e.amount,0));mk('momChart',{type:'bar',data:{labels:allM.map(m=>new Date(m+'-01').toLocaleString('en',{month:'short'})),datasets:[{data:mC,backgroundColor:'#185FA5cc',borderRadius:3},{data:[0,...mC.slice(0,-1)],backgroundColor:'#B5D4F4cc',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',font:{size:10}}}}}});}
+document.getElementById('dashErrCard').style.display=dashSettings.widgets.acctErr.on?'block':'none';
+if(dashSettings.widgets.acctErr.on){document.getElementById('acctErrTable').innerHTML=accts.map(a=>{const cos=companies.filter(c=>c.acctId===a.id);const errs=detectErrors(cos.flatMap(c=>c.entries)).length;return`<tr><td><div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:50%;background:${a.color}22;color:${a.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">${a.initials}</div>${a.name}</div></td><td style="font-size:12px;color:var(--text-secondary)">${cos.map(c=>c.name).join(', ')}</td><td style="font-size:12px">${cos.map(c=>c.lastUpload).sort().reverse()[0]||'—'}</td><td>${errs>0?`<span class="badge b-err">${errs}</span>`:'<span class="badge b-ok">None</span>'}</td><td>${errs===0?'<span class="badge b-ok">Clean</span>':errs<3?'<span class="badge b-warn">Review</span>':'<span class="badge b-err">Action needed</span>'}</td></tr>`;}).join('');}}
+function renderCoDetail(id){const co=companies.find(c=>c.id===id);if(!co)return;const acct=accts.find(a=>a.id===co.acctId);const entries=co.entries;const rev=entries.filter(e=>e.type==='revenue').reduce((a,e)=>a+e.amount,0);const exp=entries.filter(e=>e.type==='expense').reduce((a,e)=>a+e.amount,0);const net=rev-exp,margin=rev>0?net/rev*100:0;const errs=detectErrors(entries);document.getElementById('coDetailName').textContent=co.name;document.getElementById('coDetailSub').textContent=`Accountant: ${acct?acct.name:'—'} · ${entries.length} entries · Last upload: ${co.lastUpload}`;document.getElementById('coMetrics').innerHTML=[{label:'Revenue',val:fmt(rev),cls:'up'},{label:'Expenses',val:fmt(exp),cls:'dn'},{label:'Net profit',val:fmt(net),sub:pct(margin)+' margin',cls:net>=0?'up':'dn'},{label:'Errors',val:errs.length,sub:errs.length>0?'Needs review':'All clear',cls:errs.length>0?'dn':''}].map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value ${m.cls}">${m.val}</div>${m.sub?`<div class="metric-sub">${m.sub}</div>`:''}</div>`).join('');const months=[...new Set(entries.map(e=>e.date.slice(0,7)))].sort();const labels=months.map(m=>new Date(m+'-01').toLocaleString('en',{month:'short'}));mk('coRevExp',{type:'bar',data:{labels,datasets:[{data:months.map(m=>entries.filter(e=>e.date.startsWith(m)&&e.type==='revenue').reduce((a,e)=>a+e.amount,0)),backgroundColor:'rgba(24,95,165,0.8)',borderRadius:4},{data:months.map(m=>entries.filter(e=>e.date.startsWith(m)&&e.type==='expense').reduce((a,e)=>a+e.amount,0)),backgroundColor:'rgba(216,90,48,0.8)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:10},autoSkip:false}},y:{ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',font:{size:10}}}}}});const cats=['Payroll','Marketing','Software','Operations','Other'];const catV=cats.map(c=>entries.filter(e=>e.type==='expense'&&e.category===c).reduce((a,e)=>a+Math.max(0,e.amount),0));const wL=['Revenue',...cats.filter((_,i)=>catV[i]>0),'Net'];const bases=[],bars=[],clrs=[];let cum=rev;bases.push(0);bars.push(rev);clrs.push('rgba(24,95,165,0.85)');catV.forEach((v,i)=>{if(!v)return;cum-=v;bases.push(cum);bars.push(v);clrs.push('rgba(216,90,48,0.8)');});bases.push(0);bars.push(cum);clrs.push('rgba(29,158,117,0.85)');mk('coWaterfall',{type:'bar',data:{labels:wL,datasets:[{data:bases,backgroundColor:'transparent',borderWidth:0},{data:bars,backgroundColor:clrs,borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{stacked:true,ticks:{font:{size:10},autoSkip:false}},y:{stacked:true,ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',font:{size:10}}}}}});document.getElementById('coErrTable').innerHTML=errs.length?errs.map(e=>`<tr><td>${e.date}</td><td><span class="badge ${e.type==='revenue'?'b-ok':'b-info'}">${e.type}</span></td><td>${fmt(e.amount)}</td><td style="font-size:11px;color:#A32D2D">${e.issues}</td><td><span class="badge b-warn">Review</span></td></tr>`).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--text-secondary);padding:1.5rem">No errors detected</td></tr>`;runCoInsights(co,rev,exp,net,margin,errs);}
+async function runCoInsights(co,rev,exp,net,margin,errs){const el=document.getElementById('coInsights');const active=Object.entries(insightSettings).filter(([,v])=>v.on).map(([k])=>k);if(!active.length){el.innerHTML='<span style="color:var(--text-secondary);font-style:italic">All insights turned off.</span>';return;}el.innerHTML='<span style="color:var(--text-secondary);font-style:italic">Running AI analysis...</span>';const custom=document.getElementById('customInstruction')?document.getElementById('customInstruction').value:'';const prompt=`Analyse ${co.name}. Revenue: $${Math.round(rev).toLocaleString()}, Expenses: $${Math.round(exp).toLocaleString()}, Net: $${Math.round(net).toLocaleString()}, Margin: ${Math.round(margin)}%. Errors: ${errs.length} (${errs.map(e=>e.issues).join('; ')||'none'}).${custom?' Context: '+custom:''}\nReturn ONLY JSON with keys ${active.join(',')}: {"summary":"...","risks":"...","errors":"...","compare":"..."}`;try{const raw=await callAI(prompt);let parsed={};try{parsed=JSON.parse(raw.replace(/\`\`\`json|\`\`\`/g,'').trim());}catch(e){}const map={summary:{cls:'ib-summary',label:'Summary'},risks:{cls:'ib-risk',label:'Risks'},errors:{cls:'ib-error',label:'Accountant errors'},compare:{cls:'ib-compare',label:'vs last month'}};el.innerHTML=active.filter(k=>parsed[k]).map(k=>`<div class="insight-box ${map[k].cls}"><div class="ib-label">${map[k].label}</div>${parsed[k]}</div>`).join('')||'<span style="color:var(--text-secondary);font-style:italic">No insights generated.</span>';}catch(e){el.innerHTML='<span style="color:var(--text-secondary);font-style:italic">Analysis unavailable.</span>';}}
+function refreshUploadPage(){renderInsightPreview();updateUploadAcct();document.getElementById('uploadResult').style.display='none';}
+function updateUploadAcct(){const id=document.getElementById('uploadCo').value;const co=companies.find(c=>c.id===id);const acct=co?accts.find(a=>a.id===co.acctId):null;document.getElementById('uploadAcctInfo').textContent=acct?`Accountant: ${acct.name} · Last upload: ${co.lastUpload}`:'`';}
+function renderInsightPreview(){const active=Object.entries(insightSettings).filter(([,v])=>v.on);const map={summary:{cls:'ib-summary',label:'Plain-English summary'},risks:{cls:'ib-risk',label:'Top 3 risks'},errors:{cls:'ib-error',label:'Accountant error report'},compare:{cls:'ib-compare',label:'Month vs last month'}};document.getElementById('insightPreview').innerHTML=active.map(([k])=>`<div class="insight-box ${map[k].cls}" style="padding:8px 12px;margin-bottom:6px"><div class="ib-label">${map[k].label}</div><div style="font-size:12px;color:var(--text-secondary)">${insightSettings[k].desc}</div></div>`).join('')||'<div style="font-size:13px;color:var(--text-secondary)">No insights enabled.</div>';}
+function handleUpload(event){const file=event.target.files[0];if(!file)return;const coId=document.getElementById('uploadCo').value;if(!coId){alert('Select a company first.');return;}const co=companies.find(c=>c.id===coId);const reader=new FileReader();reader.onload=async function(ev){const lines=ev.target.result.split('\n').filter(l=>l.trim());const header=lines[0].toLowerCase().split(',').map(h=>h.trim());const cols={date:header.indexOf('date'),type:header.indexOf('type'),amount:header.indexOf('amount'),category:header.indexOf('category'),desc:header.indexOf('description')};let added=0;lines.slice(1).forEach(line=>{const p=line.split(',').map(x=>x.trim().replace(/"/g,''));const amt=parseFloat(p[cols.amount]);if(isNaN(amt))return;co.entries.push({id:nextId++,date:p[cols.date]||'',type:(p[cols.type]||'expense').toLowerCase(),amount:amt,category:p[cols.category]||'Other',desc:p[cols.desc]||''});added++;});co.lastUpload=new Date().toISOString().slice(0,10);renderCoNav();document.getElementById('uploadResult').style.display='block';document.getElementById('uploadMsg').textContent=`Uploaded ${added} entries for ${co.name}. Running AI analysis...`;const errs=detectErrors(co.entries);const rev=co.entries.filter(e=>e.type==='revenue').reduce((a,e)=>a+e.amount,0);const exp=co.entries.filter(e=>e.type==='expense').reduce((a,e)=>a+e.amount,0);const active=Object.entries(insightSettings).filter(([,v])=>v.on).map(([k])=>k);const el=document.getElementById('uploadInsights');if(!active.length){document.getElementById('uploadMsg').textContent=`Uploaded ${added} entries for ${co.name}.`;return;}el.innerHTML='<span style="color:var(--text-secondary);font-style:italic">Generating insights...</span>';const custom=document.getElementById('customInstruction')?document.getElementById('customInstruction').value:'';const prompt=`Analyse ${co.name} upload. Revenue: $${Math.round(rev).toLocaleString()}, Expenses: $${Math.round(exp).toLocaleString()}, Net: $${Math.round(rev-exp).toLocaleString()}. Errors: ${errs.length} (${errs.map(e=>e.issues).join('; ')||'none'}).${custom?' Context: '+custom:''}\nReturn ONLY JSON with keys ${active.join(',')}: {"summary":"...","risks":"...","errors":"...","compare":"..."}`;try{const raw=await callAI(prompt);let parsed={};try{parsed=JSON.parse(raw.replace(/\`\`\`json|\`\`\`/g,'').trim());}catch(e){}const map={summary:{cls:'ib-summary',label:'Summary'},risks:{cls:'ib-risk',label:'Risks'},errors:{cls:'ib-error',label:'Error report'},compare:{cls:'ib-compare',label:'vs last month'}};el.innerHTML=active.filter(k=>parsed[k]).map(k=>`<div class="insight-box ${map[k].cls}" style="margin-top:8px"><div class="ib-label">${map[k].label}</div>${parsed[k]}</div>`).join('')||'';document.getElementById('uploadMsg').textContent=`Uploaded ${added} entries · ${errs.length} errors · Analysis complete`;}catch(e){el.innerHTML='';}};reader.readAsText(file);}
+function renderInsightToggles(){document.getElementById('insightToggles').innerHTML=Object.entries(insightSettings).map(([k,v])=>`<div class="toggle-row"><div><div style="font-size:13px;font-weight:500">${v.label}</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${v.desc}</div></div><label class="tgl"><input type="checkbox" ${v.on?'checked':''} onchange="insightSettings['${k}'].on=this.checked;renderInsightPreview()"><div class="tgl-track"></div><div class="tgl-thumb"></div></label></div>`).join('');document.getElementById('errorToggles').innerHTML=Object.entries(errorSettings).map(([k,v])=>`<div class="toggle-row"><div style="font-size:13px">${v.label}</div><label class="tgl"><input type="checkbox" ${v.on?'checked':''} onchange="errorSettings['${k}'].on=this.checked"><div class="tgl-track"></div><div class="tgl-thumb"></div></label></div>`).join('');}
+function saveSettings(id){const el=document.getElementById(id);el.style.display='block';setTimeout(()=>el.style.display='none',2500);}
+function renderDashToggles(){document.getElementById('metricToggles').innerHTML=Object.entries(dashSettings.metrics).map(([k,v])=>`<div class="toggle-row"><div style="font-size:13px">${v.label}</div><label class="tgl"><input type="checkbox" ${v.on?'checked':''} onchange="dashSettings.metrics['${k}'].on=this.checked"><div class="tgl-track"></div><div class="tgl-thumb"></div></label></div>`).join('');document.getElementById('widgetToggles').innerHTML=Object.entries(dashSettings.widgets).map(([k,v])=>`<div class="toggle-row"><div style="font-size:13px">${v.label}</div><label class="tgl"><input type="checkbox" ${v.on?'checked':''} onchange="dashSettings.widgets['${k}'].on=this.checked"><div class="tgl-track"></div><div class="tgl-thumb"></div></label></div>`).join('');}
+function saveDashSettings(){nav('dashboard',document.querySelector('.nav-item'));}
+function addCo(){const name=prompt('Company name:');if(!name)return;const acctName=prompt('Accountant name:');if(!acctName)return;let acct=accts.find(a=>a.name.toLowerCase()===acctName.toLowerCase());if(!acct){const pts=acctName.trim().split(' ');acct={id:'a'+Date.now(),name:acctName,initials:(pts[0][0]+(pts[1]?pts[1][0]:'')).toUpperCase(),color:PAL[accts.length%PAL.length]};accts.push(acct);}companies.push({id:'c'+Date.now(),name,color:PAL[companies.length%PAL.length],acctId:acct.id,lastUpload:'—',entries:[]});renderCoNav();refreshDash();}
+renderCoNav();refreshDash();renderInsightPreview();
+</script>
+</body>
+</html>
